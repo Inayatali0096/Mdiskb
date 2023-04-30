@@ -1,0 +1,120 @@
+import logging
+
+import requests
+
+from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove)
+
+from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters,
+
+                          ConversationHandler)
+
+# Enable logging
+
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+
+                    level=logging.INFO)
+
+logger = logging.getLogger(__name__)
+
+# Define conversation states
+
+SEARCH = range(1)
+
+# Define handler functions
+
+def start(update, context):
+
+    """Send a message when the command /start is issued."""
+
+    update.message.reply_text('Hi! I am M-Disk movie search bot. Please enter a movie name to search or type /cancel to exit the search.')
+
+    return SEARCH
+
+def search(update, context):
+
+    """Search for movies on M-Disk."""
+
+    movie_name = update.message.text
+
+    url = f'https://api.themoviedb.org/3/search/movie?api_key=API_KEY&query={movie_name}'
+
+    response = requests.get(url)
+
+    results = response.json()['results']
+
+    # Check if any movies were found
+
+    if not results:
+
+        update.message.reply_text('No movies found for the given search term. Please try again or type /cancel to exit the search.')
+
+        return SEARCH
+
+    # Create a list of movie titles
+
+    titles = []
+
+    for movie in results:
+
+        titles.append(movie['title'])
+
+    # Send the list of movie titles as a message
+
+    update.message.reply_text('\n'.join(titles))
+
+    return SEARCH
+
+def cancel(update, context):
+
+    """End the conversation."""
+
+    update.message.reply_text('The search has been cancelled.', reply_markup=ReplyKeyboardRemove())
+
+    return ConversationHandler.END
+
+def main():
+
+    """Start the bot."""
+
+    # Create the Updater and pass it the bot token
+
+    updater = Updater("API_TOKEN", use_context=True)
+
+    # Get the dispatcher to register handlers
+
+    dp = updater.dispatcher
+
+    # Add conversation handler with the states SEARCH
+
+    conv_handler = ConversationHandler(
+
+        entry_points=[CommandHandler('start', start)],
+
+        states={
+
+            SEARCH: [MessageHandler(Filters.text, search)],
+
+        },
+
+        fallbacks=[CommandHandler('cancel', cancel)]
+
+    )
+
+    dp.add_handler(conv_handler)
+
+    # Start the bot
+
+    updater.start_polling()
+
+    # Run the bot until you press Ctrl-C or the process receives SIGINT,
+
+    # SIGTERM or SIGABRT. This should be used most of the time, since
+
+    # start_polling() is non-blocking and will stop the bot gracefully.
+
+    updater.idle()
+
+if __name__ == '__main__':
+
+    main()
+
